@@ -4,11 +4,11 @@
 #
 # (C) 2016-2018 Eric James Beasley
 #
-ScriptVersion=00.07.00
+ScriptVersion=00.07.01
 ScriptDate=2018-01-21
 #
 
-export BASHScriptVersion=v00x07x00
+export BASHScriptVersion=v00x07x01
 
 
 echo
@@ -120,7 +120,7 @@ export outputpathroot=./host_data
 #export outputpathroot=`realpath "$outputpathroot"`
 export expandedpath=$(cd $outputpathroot ; pwd)
 export outputpathroot=${expandedpath}
-$alliasAddFile#echo 'outputpathroot = '$outputpathroot
+#echo 'outputpathroot = '$outputpathroot
 
 export outputpathbase=$outputpathroot
 export outputpathbase=$outputpathroot/$DATE
