@@ -2,13 +2,18 @@
 #
 # SCRIPT capture configuration values for bash and clish level 002
 #
-# (C) 2017 Eric James Beasley
+# (C) 2016-2018 Eric James Beasley
 #
-ScriptVersion=00.04.00
-ScriptDate=2017-08-07
+ScriptVersion=00.07.01
+ScriptDate=2018-01-21
 #
 
-export BASHScriptVersion=v00x03x00
+export BASHScriptVersion=v00x07x01
+
+
+echo
+echo 'Script Configuration Capture script version '$ScriptVersion' from '$ScriptDate
+echo
 
 #----------------------------------------------------------------------------------------
 # Setup Basic Parameters
@@ -22,26 +27,28 @@ export DATE=`date +%Y-%m-%d-%H%M%S%Z`
 echo 'Date Time Group   :  '$DATE
 echo
 
-export outputpathroot=./host_data
-#export outputpathroot=/var/upgrade_export
-export outputpathbase=$outputpathroot
-export outputpathbase=$outputpathroot/$DATE
+export localdotpath=`echo $PWD`
 
-export outputhomepath=$outputpathbase/home
+export currentlocalpath=$localdotpath
+export workingpath=$currentlocalpath
 
-export homebackuproot=.
-export homebackuppath="$homebackuproot/home.backup"
+#----------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------
+#
+# Gaia version and installation type identification
+#
+#----------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------
 
-if [ ! -r $homebackuppath ] ; then
-    mkdir $homebackuppath
-    chmod 775 $homebackuppath
-else
-    chmod 775 $homebackuppath
-fi
 
 export gaiaversion=$(clish -c "show version product" | cut -d " " -f 6)
 echo 'Gaia Version : $gaiaversion = '$gaiaversion
 echo
+
+Check4SMS=0
+Check4EPM=0
+Check4MDS=0
+Check4GW=0
 
 workfile=/var/tmp/cpinfo_ver.txt
 cpinfo -y all > $workfile 2>&1
@@ -61,32 +68,65 @@ fi
 
 if [ $Check4SMS -gt 0 ] && [ $Check4MDS -gt 0 ]; then
     echo "System is Multi-Domain Management Server!"
+    Check4GW=0
 elif [ $Check4SMS -gt 0 ] && [ $Check4MDS -eq 0 ]; then
     echo "System is Security Management Server!"
+    Check4SMS=1
+    Check4GW=0
 else
     echo "System is a gateway!"
+    Check4GW=1
 fi
 echo
 
 if [ $Check4EP773000 -gt 0 ] && [ $Check4EP773003 -gt 0 ]; then
     echo "Endpoint Security Server version R77.30.03"
     export gaiaversion=R77.30.03
+    Check4EPM=1
 elif [ $Check4EP773000 -gt 0 ] && [ $Check4EP773002 -gt 0 ]; then
     echo "Endpoint Security Server version R77.30.02"
     export gaiaversion=R77.30.02
+    Check4EPM=1
 elif [ $Check4EP773000 -gt 0 ] && [ $Check4EP773001 -gt 0 ]; then
     echo "Endpoint Security Server version R77.30.01"
     export gaiaversion=R77.30.01
+    Check4EPM=1
 elif [ $Check4EP773000 -gt 0 ]; then
     echo "Endpoint Security Server version R77.30"
     export gaiaversion=R77.30
+    Check4EPM=1
 else
     echo "Not Gaia Endpoint Security Server"
+    Check4EPM=0
 fi
 
 echo
 echo 'Final $gaiaversion = '$gaiaversion
 echo
+
+
+#----------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------
+#
+# base parameters
+#
+#----------------------------------------------------------------------------------------
+#----------------------------------------------------------------------------------------
+
+
+
+#export outputpathroot=/var/upgrade_export
+export outputpathroot=./host_data
+#export outputpathroot=`realpath "$outputpathroot"`
+export expandedpath=$(cd $outputpathroot ; pwd)
+export outputpathroot=${expandedpath}
+#echo 'outputpathroot = '$outputpathroot
+
+export outputpathbase=$outputpathroot
+export outputpathbase=$outputpathroot/$DATE
+
+#export outputhomepath=$outputpathbase/home
+export outputhomepath=$outputpathbase
 
 
 #----------------------------------------------------------------------------------------
@@ -127,6 +167,7 @@ if [ ! -r $outputfilepath ] ; then
 else
     chmod 775 $outputfilepath
 fi
+
 if [ ! -r $outputhomepath ] ; then
     mkdir $outputhomepath
     chmod 775 $outputhomepath
@@ -138,16 +179,57 @@ fi
 # bash - backup user's home folder
 #----------------------------------------------------------------------------------------
 
+export homebackuproot=.
+#export homebackuproot=`realpath "$homebackuproot"`
+export expandedpath=$(cd $homebackuproot ; pwd)
+export homebackuproot=${expandedpath}
+export homebackuppath="$homebackuproot/home.backup"
+
+if [ ! -r $homebackuppath ] ; then
+    mkdir $homebackuppath
+    chmod 775 $homebackuppath
+else
+    chmod 775 $homebackuppath
+fi
+
 export command2run=backup-home
-export outputfile=$command2run'_'$outputfileprefix$outputfilesuffix
+export outputfile=$command2run'_'$outputfileprefix$outputfilesuffix'.txt'
 export outputfilefqdn=$outputfilepath$outputfile
+touch "$outputfilefqdn"
 
 echo
 echo 'Execute '$command2run' to '$outputhomepath' with ouptut to : '$outputfilefqdn
-touch "$outputfilefqdn"
-cp -a "$HOME" "$outputhomepath/" >> "$outputfilefqdn"
-cp -a "$HOME" "$homebackuppath/" >> "$outputfilefqdn" 
 
+echo >> "$outputfilefqdn"
+echo "Current path : " >> "$outputfilefqdn"
+pwd >> "$outputfilefqdn"
+
+echo "Copy /home folder to $outputhomepath" >> "$outputfilefqdn"
+cp -a -v "/home/" "$outputhomepath" >> "$outputfilefqdn"
+
+echo
+echo 'Execute '$command2run' to '$homebackuppath' with ouptut to : '$outputfilefqdn
+echo >> "$outputfilefqdn"
+
+pushd /home
+
+echo >> "$outputfilefqdn"
+echo "Current path : " >> "$outputfilefqdn"
+pwd >> "$outputfilefqdn"
+
+echo "Copy /home folder contents to $homebackuppath" >> "$outputfilefqdn"
+cp -a -v "." "$homebackuppath" >> "$outputfilefqdn"
+
+popd
+
+echo >> "$outputfilefqdn"
+echo "Current path : " >> "$outputfilefqdn"
+pwd >> "$outputfilefqdn"
+
+echo >> "$outputfilefqdn"
+
+echo "Current path : "
+pwd
 
 
 #----------------------------------------------------------------------------------------
@@ -177,6 +259,9 @@ export outputfilefqdn=$outputfilepath$outputfile
 
 touch $outputfilefqdn
 echo 'Versions:' >> "$outputfilefqdn"
+echo >> "$outputfilefqdn"
+echo '----------------------------------------------------------------------------' >> "$outputfilefqdn"
+echo '----------------------------------------------------------------------------' >> "$outputfilefqdn"
 echo >> "$outputfilefqdn"
 
 echo >> "$outputfilefqdn"
@@ -229,6 +314,33 @@ export outputfilefqdn=$outputfilepath$outputfile
 echo
 echo 'Execute '$command2run' with ouptut to : '$outputfilefqdn
 cplic print > "$outputfilefqdn"
+
+
+#----------------------------------------------------------------------------------------
+# bash - basic information
+#----------------------------------------------------------------------------------------
+
+export command2run=basic_information
+export outputfile=$outputfileprefix'_'$command2run$outputfilesuffix$outputfiletype
+export outputfilefqdn=$outputfilepath$outputfile
+
+echo
+echo 'Execute '$command2run' with ouptut to : '$outputfilefqdn
+
+touch $outputfilefqdn
+echo >> "$outputfilefqdn"
+echo 'Memory Utilization : free -m -t' >> "$outputfilefqdn"
+echo >> "$outputfilefqdn"
+
+free -m -t >> "$outputfilefqdn"
+
+echo >> "$outputfilefqdn"
+echo '----------------------------------------------------------------------------' >> "$outputfilefqdn"
+echo >> "$outputfilefqdn"
+echo 'Disk Utilization : df -h' >> "$outputfilefqdn"
+echo >> "$outputfilefqdn"
+
+df -h >> "$outputfilefqdn"
 
 
 #----------------------------------------------------------------------------------------
@@ -329,65 +441,43 @@ echo
 
 
 #----------------------------------------------------------------------------------------
-# bash - status of SecureXL
+# bash - GW - status of SecureXL
 #----------------------------------------------------------------------------------------
 
-export command2run=fwaccel-statistics
-export outputfile=$outputfileprefix'_'$command2run$outputfilesuffix$outputfiletype
-export outputfilefqdn=$outputfilepath$outputfile
+if [ $Check4GW -eq 1 ]; then
+    
+    export command2run=fwaccel-statistics
+    export outputfile=$outputfileprefix'_'$command2run$outputfilesuffix$outputfiletype
+    export outputfilefqdn=$outputfilepath$outputfile
+    
+    echo
+    echo 'Execute '$command2run' with ouptut to : '$outputfilefqdn
+    
+    touch $outputfilefqdn
+    echo >> "$outputfilefqdn"
+    echo 'fwacell stat' >> "$outputfilefqdn"
+    echo >> "$outputfilefqdn"
+    
+    fwaccel stat >> "$outputfilefqdn"
+    
+    echo >> "$outputfilefqdn"
+    echo '----------------------------------------------------------------------------' >> "$outputfilefqdn"
+    echo >> "$outputfilefqdn"
+    echo 'fwacell stats' >> "$outputfilefqdn"
+    echo >> "$outputfilefqdn"
+    
+    fwaccel stats >> "$outputfilefqdn"
+    
+    echo >> "$outputfilefqdn"
+    echo '----------------------------------------------------------------------------' >> "$outputfilefqdn"
+    echo >> "$outputfilefqdn"
+    echo 'fwacell stats -s' >> "$outputfilefqdn"
+    echo >> "$outputfilefqdn"
+    
+    fwaccel stats -s >> "$outputfilefqdn"
+    
+fi
 
-echo
-echo 'Execute '$command2run' with ouptut to : '$outputfilefqdn
-
-touch $outputfilefqdn
-echo >> "$outputfilefqdn"
-echo 'fwacell stat' >> "$outputfilefqdn"
-echo >> "$outputfilefqdn"
-
-fwaccel stat >> "$outputfilefqdn"
-
-echo >> "$outputfilefqdn"
-echo '----------------------------------------------------------------------------' >> "$outputfilefqdn"
-echo >> "$outputfilefqdn"
-echo 'fwacell stats' >> "$outputfilefqdn"
-echo >> "$outputfilefqdn"
-
-fwaccel stats >> "$outputfilefqdn"
-
-echo >> "$outputfilefqdn"
-echo '----------------------------------------------------------------------------' >> "$outputfilefqdn"
-echo >> "$outputfilefqdn"
-echo 'fwacell stats -s' >> "$outputfilefqdn"
-echo >> "$outputfilefqdn"
-
-fwaccel stats -s >> "$outputfilefqdn"
-
-
-#----------------------------------------------------------------------------------------
-# bash - basic information
-#----------------------------------------------------------------------------------------
-
-export command2run=basic_information
-export outputfile=$outputfileprefix'_'$command2run$outputfilesuffix$outputfiletype
-export outputfilefqdn=$outputfilepath$outputfile
-
-echo
-echo 'Execute '$command2run' with ouptut to : '$outputfilefqdn
-
-touch $outputfilefqdn
-echo >> "$outputfilefqdn"
-echo 'Memory Utilization : free -m -t' >> "$outputfilefqdn"
-echo >> "$outputfilefqdn"
-
-free -m -t >> "$outputfilefqdn"
-
-echo >> "$outputfilefqdn"
-echo '----------------------------------------------------------------------------' >> "$outputfilefqdn"
-echo >> "$outputfilefqdn"
-echo 'Disk Utilization : df -h' >> "$outputfilefqdn"
-echo >> "$outputfilefqdn"
-
-df -h >> "$outputfilefqdn"
 
 #----------------------------------------------------------------------------------------
 #----------------------------------------------------------------------------------------
