@@ -2,11 +2,13 @@
 #
 # SCRIPT for BASH to Watch mdsstat
 #
-ScriptVersion=00.05.00
-ScriptDate=2018-05-30
+# (C) 2017-2018 Eric James Beasley, @mybasementcloud, https://github.com/mybasementcloud/bash_4_Check_Point_scripts
+#
+ScriptVersion=00.07.00
+ScriptDate=2018-06-30
 #
 
-export BASHScriptVersion=v00x05x00
+export BASHScriptVersion=v00x07x00
 
 export gaiaversion=$(clish -c "show version product" | cut -d " " -f 6)
 echo 'Gaia Version : $gaiaversion = '$gaiaversion
